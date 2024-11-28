@@ -4,13 +4,14 @@
 # It supports 3 stats forecasting models - Linear Regression, ARIMA, and Holt-Winters
 
 library(shiny)
+library(tidyverse)
 data(AirPassengers)
 
 # UI ----
 ui <- fluidPage(
 
   # App title ----
-  titlePanel("Forecasting Sandbox"),
+  titlePanel("Forecasting Sandbox Dashboard"),
   sidebarLayout(
 
     sidebarPanel(width = 3,
@@ -200,32 +201,58 @@ server <- function(input, output) {
 
     }
 
-# Setting the plot
-    at_x <- pretty(seq.Date(from = min(d$df$index),
-                     to = max(fc$index),
-                     by = "month"))
-
-    at_y <- c(pretty(c(d$df$input, fc$upr)), 1200)
-
-    plot(x = d$df$index, y = d$df$input,
-        col = "#1f77b4",
-        type = "l",
-        frame.plot = FALSE,
-        axes = FALSE,
-        panel.first = abline(h = at_y, col = "grey80"),
-        main = "AirPassengers Forecast",
-        xlim = c(min(d$df$index), max(fc$index)),
-        ylim = c(min(c(min(d$df$input), min(fc$lwr))), max(c(max(fc$upr), max(d$df$input)))),
-        xlab = paste("Model:", input$model, sep = " "),
-        ylab = "Num. of Passengers (in Thousands)")
-    mtext(side =1, text = format(at_x, format = "%Y-%M"), at = at_x,
-      col = "grey20", line = 1, cex = 0.8)
-
-mtext(side =2, text = format(at_y, scientific = FALSE), at = at_y,
-      col = "grey20", line = 1, cex = 0.8)
-    lines(x = fc$index, y = fc$fit, col = '#1f77b4', lty = 2, lwd = 2)
-  lines(x = fc$index, y = fc$upr, col = 'blue', lty = 2, lwd = 2)
-  lines(x = fc$index, y = fc$lwr, col = 'blue', lty = 2, lwd = 2)
+    # ggplot2 implementation
+    observed_data <- d$df
+    forecast_data <- fc %>%
+      mutate(type = "Forecast") %>%
+      rename(value = fit)
+    
+    observed_data <- observed_data %>%
+      mutate(type = "Observed", value = input)
+    
+    combined_data <- bind_rows(observed_data %>% select(index, value, type),
+                               forecast_data %>% select(index, value, type))
+    
+    ggplot(data = combined_data, aes(x = index, y = value, color = type)) +
+      geom_line(size = 1) +
+      # geom_ribbon(data = forecast_data, 
+      #             aes(ymin = lwr, ymax = upr, fill = "Confidence Interval"), 
+      #             alpha = 0.2, inherit.aes = FALSE) +
+      labs(title = "AirPassengers Forecast",
+           x = paste("Model:", input$model),
+           y = "Num. of Passengers (in Thousands)") +
+      scale_color_manual(values = c("Observed" = "#1f77b4", "Forecast" = "blue")) +
+      scale_fill_manual(values = c("Confidence Interval" = "blue")) +
+      theme_minimal() +
+      theme(legend.title = element_blank(),
+            legend.position = "top")
+    
+# # Setting the plot
+#     at_x <- pretty(seq.Date(from = min(d$df$index),
+#                      to = max(fc$index),
+#                      by = "month"))
+# 
+#     at_y <- c(pretty(c(d$df$input, fc$upr)), 1200)
+#     
+#     plot(x = d$df$index, y = d$df$input,
+#         col = "#1f77b4",
+#         type = "l",
+#         frame.plot = FALSE,
+#         axes = FALSE,
+#         panel.first = abline(h = at_y, col = "grey80"),
+#         main = "AirPassengers Forecast",
+#         xlim = c(min(d$df$index), max(fc$index)),
+#         ylim = c(min(c(min(d$df$input), min(fc$lwr))), max(c(max(fc$upr), max(d$df$input)))),
+#         xlab = paste("Model:", input$model, sep = " "),
+#         ylab = "Num. of Passengers (in Thousands)")
+#     mtext(side =1, text = format(at_x, format = "%Y-%M"), at = at_x,
+#       col = "grey20", line = 1, cex = 0.8)
+# 
+# mtext(side =2, text = format(at_y, scientific = FALSE), at = at_y,
+#       col = "grey20", line = 1, cex = 0.8)
+#     lines(x = fc$index, y = fc$fit, col = '#1f77b4', lty = 2, lwd = 2)
+#   lines(x = fc$index, y = fc$upr, col = 'blue', lty = 2, lwd = 2)
+#   lines(x = fc$index, y = fc$lwr, col = 'blue', lty = 2, lwd = 2)
 
     })
 
